@@ -1,5 +1,3 @@
-package reddit_fead_reader;
-
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
 import org.w3c.dom.Document;
@@ -11,6 +9,12 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 
+
+/**
+ * 
+ * This class acts as helper class
+ *
+ */
 public class XMLToCSV {
 
 	private BufferedWriter fileWriter;
