@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -21,14 +23,17 @@ public class FeedReader extends Thread{
 	public static void main(String[] args){
 		
 		String fileToPath = "C:/Users/Alina/Desktop/Data Mining/Projekt/newsFeed7.csv";
-		long startTime = 1420070400; // 01.01.2015
-		long endTime = 1421107199; // 12.01.2015
+
+		// long startTime = 1420070400; // 01.01.2015
+		// long endTime = 1421107199; // 12.01.2015
 		
-		long startTime2 = 1422835199;
-		long endTime2 = 1423785599;
+		// long startTime2 = 1422835199;
+		// long endTime2 = 1423785599;
 		String fileToPath2 = "C:/Users/Alina/Desktop/Data Mining/Projekt/newsFeed.csv";
 		
-		Thread t1 = new Thread(new feedGetter(startTime, endTime, fileToPath), "Thread 1");
+		
+		
+		Thread t1 = new Thread(new feedGetter("2015-01-01", "2015-01-12", fileToPath), "Thread 1");
 	//	Thread t1 = new Thread(new feedGetter(new Date(2015, 1, 1), new Date(2015, 1, 12), fileToPath), "Thread 1");
 		// todo: 10 threads per year
 		// todo: add Alexandras 
@@ -37,7 +42,11 @@ public class FeedReader extends Thread{
 		//t2.start();
 	}
 	
-	
+	/**
+	 * 
+	 * The Runnable that gets the reddit feed.
+	 *
+	 */
 	private static class feedGetter implements Runnable {
 		
 		private	long timestampBegin;
@@ -49,15 +58,31 @@ public class FeedReader extends Thread{
 		private String generatedUrl; // the current concatenated URL
 		private String pathToFile; // path to the file in which the reader writes the headlines
 		public ArrayList<String> urlsThatDidNotWork; // contains the URLs that did not work
+		private SimpleDateFormat sdf; 
+		// http://docs.aws.amazon.com/cloudsearch/latest/developerguide/searching-dates.html
 		
-		public feedGetter (long startTime, long endTime, String pathToFile){
-			this.timestampBegin = startTime;
-//			this.timestampBegin = (long) (beginningDay.getTime() / 1000);
+		/**
+		 * Constructor.
+		 * @param startDate Date from which onwards the reddit feed is extracted.
+		 * @param endDate Date up to which the reddit feed is extracted. The data will be extracted for as well.
+		 * @param pathToFile The file where you want your CSV File to be stored in.
+		 */
+		public feedGetter (String startDate, String endDate, String pathToFile){
+			
+			// converting the input into UTC time in milliseconds
+			sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS zzz"); // converter for easier input
+
+			try {
+			this.timestampBegin = sdf.parse(startDate + " 00:00:00.000 UTC").getTime();
+			this.endTime = sdf.parse(endDate + " 24:00:00.000 UTC").getTime();
+			} catch (ParseException e) {
+				System.out.println("There was a problem parsing startTime or endTime.");
+			}
+
 			this.timestampEnd =  this.timestampBegin + (24*60*60) - 1; //seconds per day
 			this.pathToFile = pathToFile;
-			this.endTime = endTime;
-//			this.endTime = (long) (endingDay.getTime() / 1000);
 			this.urlsThatDidNotWork = new ArrayList<String>();
+			
 		}
 					
 			// do the following coding in a loop so that the URL changes day by day.
