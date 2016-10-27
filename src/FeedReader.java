@@ -22,19 +22,21 @@ public class FeedReader extends Thread{
 
 	public static void main(String[] args){
 		
-		String fileToPath = "C:/Users/Alina/Desktop/Data Mining/Projekt/newsFeed7.csv";
+		String fileToPath = "C:/Users/D060249/Desktop/TMP/newsfeed.csv";
+		//C:/Users/Alina/Desktop/Data Mining/Projekt/newsFeed7.csv
+		
 
 		// long startTime = 1420070400; // 01.01.2015
 		// long endTime = 1421107199; // 12.01.2015
 		
 		// long startTime2 = 1422835199;
 		// long endTime2 = 1423785599;
-		String fileToPath2 = "C:/Users/Alina/Desktop/Data Mining/Projekt/newsFeed.csv";
+		//String fileToPath2 = "C:/Users/Alina/Desktop/Data Mining/Projekt/newsFeed.csv";
 		
 		
 		
 		Thread t1 = new Thread(new feedGetter("2015-01-01", "2015-01-12", fileToPath), "Thread 1");
-	//	Thread t1 = new Thread(new feedGetter(new Date(2015, 1, 1), new Date(2015, 1, 12), fileToPath), "Thread 1");
+	    //	Thread t1 = new Thread(new feedGetter(new Date(2015, 1, 1), new Date(2015, 1, 12), fileToPath), "Thread 1");
 		// todo: 10 threads per year
 		// todo: add Alexandras 
 		
@@ -74,7 +76,7 @@ public class FeedReader extends Thread{
 
 			try {
 			this.timestampBegin = sdf.parse(startDate + " 00:00:00.000 UTC").getTime();
-			this.endTime = sdf.parse(endDate + " 24:00:00.000 UTC").getTime();
+			this.endTime = sdf.parse(endDate + " 23:59:59.999 UTC").getTime();
 			} catch (ParseException e) {
 				System.out.println("There was a problem parsing startTime or endTime.");
 			}
@@ -96,7 +98,9 @@ public class FeedReader extends Thread{
 				csvFileWriter = new BufferedWriter(new FileWriter(new File(this.pathToFile)));
 			} catch (IOException e1) {
 				// TODO Auto-generated catch block
+				System.out.println(Thread.currentThread().getName() + ": The provided path for the file does not work.");
 				e1.printStackTrace();
+				return;
 			}
 			
 			do {
