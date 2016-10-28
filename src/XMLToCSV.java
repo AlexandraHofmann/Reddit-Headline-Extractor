@@ -59,7 +59,7 @@ public class XMLToCSV {
 					//String entry = (i + "," + updated.substring(0, 10) + "," + title.replace(",", ""));
 					
 					// TODO: add more preprocessing, e.g. delete "", '', ...
-					String entryCSV = ((index+1) + "," + date.toGMTString() + "," + title.replace(",", ""));
+					String entryCSV = ((index+1) + "," + date.toGMTString() + "," + title.replace(",", "").replace("\"", ""));
 					buffer.append(entryCSV);
 					buffer.append("\n");
 				}
