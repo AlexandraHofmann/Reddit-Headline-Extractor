@@ -38,7 +38,6 @@ public class XMLToCSV {
 		try {
 			this.dBuilder = dbFactory.newDocumentBuilder();
 		} catch (ParserConfigurationException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -49,7 +48,6 @@ public class XMLToCSV {
 			doc = dBuilder.parse(xmlInputStream);			
 			NodeList entryList = doc.getElementsByTagName("entry");
 				
-			System.out.println("Start XML Conversion");
 			for (int index = 0; index < entryList.getLength(); index++) {
 				Node entryItem = entryList.item(index);
 				if (entryItem.getNodeType() == Node.ELEMENT_NODE) {
@@ -64,7 +62,6 @@ public class XMLToCSV {
 					buffer.append("\n");
 				}
 			}
-			System.out.println("Stop XML Conversion");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

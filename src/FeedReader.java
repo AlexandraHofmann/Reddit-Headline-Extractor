@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Class that reads the Reddit RSS and saves them in one file per year.
@@ -29,10 +31,9 @@ public class FeedReader {
 		// "C:/Users/D060249/Desktop/TMP/newsfeed.csv";
 		// C:/Users/Alina/Desktop/Data Mining/Projekt/newsFeed7.csv
 
-		Thread t1 = new Thread(new feedGetter("2015-01-01", "2015-01-12", fileToPath), "Thread 1");
+		Thread t1 = new Thread(new feedGetter("2015-01-01", "2015-04-01", fileToPath), "Thread 1");
 
 		// todo: 10 threads per year
-
 		t1.start();
 	}
 
@@ -47,21 +48,24 @@ public class FeedReader {
 		private long timestampEnd;
 		private long endTime;
 		private Calendar calendar = Calendar.getInstance();
+		private SimpleDateFormat sdf; // http://docs.aws.amazon.com/cloudsearch/latest/developerguide/searching-dates.html
+
 		private BufferedReader rssReader; // reader for RSS files
 		private BufferedWriter csvFileWriter; // writer that writes into the
 												// specified csv file
 		private URL url; // URL object for getting the data
 		private URLConnection urlConnection;
 		private String generatedUrl; // the current concatenated URL
-		private String pathToFile; // path to the file in which the reader
-									// writes the headlines
-		public ArrayList<String> urlsThatDidNotWork; // contains the URLs that
-														// did not work
-		private SimpleDateFormat sdf; // http://docs.aws.amazon.com/cloudsearch/latest/developerguide/searching-dates.html
+		private String pathToFile; // path to the file in which the reader writes the headlines
+		public ArrayList<String> urlsThatDidNotWork; // contains the URLs that did not work
+		
 		private XMLToCSV converter;
+		
 		private final static int READ_TIMEOUT = 20000;
 		private final static int CONNECT_TIMEOUT = 20000;
 		private final static int MAX_NUMBER_OF_RETRIES = 20;
+		
+		public Logger logger = Logger.getLogger(getClass().getName());
 
 		/**
 		 * Constructor.
@@ -69,13 +73,13 @@ public class FeedReader {
 		 * @param startDate
 		 *            Date from which onwards the reddit feed is extracted.
 		 * @param endDate
-		 *            Date up to which the reddit feed is extracted. The data
-		 *            will be extracted for as well.
+		 *            Date up to which the reddit feed is extracted. The data will be extracted for as well.
 		 * @param pathToFile
 		 *            The file where you want your CSV File to be stored in.
 		 */
 		public feedGetter(String startDate, String endDate, String pathToFile) {
 
+			logger.setLevel(Level.FINEST);
 			sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS zzz"); 
 
 			try {
@@ -84,7 +88,7 @@ public class FeedReader {
 				endTime = sdf.parse(endDate + " 23:59:59.999 EST").getTime() / 1000;
 
 			} catch (ParseException e) {
-				System.out.println("There was a problem parsing startTime or endTime.");
+				logger.warning("There was a problem parsing startTime or endTime.");
 			}
 
 			this.pathToFile = pathToFile;
@@ -93,8 +97,7 @@ public class FeedReader {
 
 		}
 		// do the following coding in a loop so that the URL changes day by day.
-		// write the data in a file (this will be used for the data input in
-		// RapidMiner)
+		// write the data in a file (this will be used for the data input in RapidMiner)
 
 		@Override
 		public void run() {
@@ -103,9 +106,7 @@ public class FeedReader {
 			try {
 				csvFileWriter = new BufferedWriter(new FileWriter(new File(this.pathToFile)));
 			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				System.out
-						.println(Thread.currentThread().getName() + ": The provided path for the file does not work.");
+				logger.severe(Thread.currentThread().getName() + ": The provided path for the file does not work.");
 				e1.printStackTrace();
 				return;
 			}
@@ -125,13 +126,12 @@ public class FeedReader {
 				generatedUrl = "https://www.reddit.com/r/worldnews/search/.rss?q=timestamp:" + start + ".." + end
 						+ "&sort=top&restrict_sr=on&limit=25&syntax=cloudsearch";
 
-				System.out.println(Thread.currentThread().getName() + " day " + dayIndex);
+				logger.info(Thread.currentThread().getName() + " day " + dayIndex);
 
 				try {
 
 					url = new URL(generatedUrl);
-
-					System.out.println(Thread.currentThread().getName() + " " + url);
+					logger.info(Thread.currentThread().getName() + " " + url);
 
 					int numberOfRetries = 1;
 
@@ -156,21 +156,20 @@ public class FeedReader {
 							String csv = converter.xmlToCsv(is, new Date(this.timestampBegin * 1000));
 							csvFileWriter.write(csv);
 
-							System.out.println(Thread.currentThread().getName() + " Day " + dayIndex + " DONE");
+							logger.info(Thread.currentThread().getName() + " Day " + dayIndex + " DONE");
 							break;
 							
 						} catch (SocketTimeoutException e) {
-							System.out.println("Connection timeout.");
+							logger.warning("Connection timeout.");
 							urlConnection = null;
 							if (numberOfRetries == MAX_NUMBER_OF_RETRIES) {
 								urlsThatDidNotWork.add("day: " + dayIndex + " url: " + generatedUrl);
 							}
 						} catch (IOException e) {
 							if (e.getMessage().contains("Server returned HTTP response code: 429")) {
-								System.out.println(
-										Thread.currentThread().getName() + " HTTP response 429: Too many requests.");
+								logger.warning(Thread.currentThread().getName() + " HTTP response 429: Too many requests.");
 							} else {
-								System.out.println(Thread.currentThread().getName() + " Problem. Retry.");
+								logger.warning(Thread.currentThread().getName() + " Problem. Retry.");
 							}
 							urlConnection = null;
 							if (numberOfRetries == MAX_NUMBER_OF_RETRIES) {
@@ -191,21 +190,20 @@ public class FeedReader {
 					}
 
 				} catch (MalformedURLException e) {
-					System.out.println("Malformed URL");
+					logger.severe("Malformed URL");
 					e.printStackTrace();
-
 				} 
 				dayIndex++;
 
 			} while (timestampEnd < endTime);
 
-			System.out.println(Thread.currentThread().getName() + " URLs that did not work: ");
+			logger.info(Thread.currentThread().getName() + " URLs that did not work: ");
 
 			if (urlsThatDidNotWork.isEmpty()) {
-				System.out.println("none");
+				logger.fine("none");
 			} else {
 				for (String s : urlsThatDidNotWork) {
-					System.out.println(s);
+					logger.warning(s);;
 				}
 			}
 
