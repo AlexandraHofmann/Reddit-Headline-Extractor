@@ -8,7 +8,9 @@ import java.io.InputStreamReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.net.MalformedURLException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -21,7 +23,7 @@ import java.util.TimeZone;
 /**
  * Class that reads the Reddit RSS and saves them in one file per year.
  */
-public class FeedReader extends Thread{
+public class FeedReader{
 
 
 	public static void main(String[] args){
@@ -61,11 +63,14 @@ public class FeedReader extends Thread{
 		private BufferedReader rssReader; // reader for RSS files
 		private BufferedWriter csvFileWriter; // writer that writes into the specified csv file
 		private URL url; // URL object for getting the data
+		private URLConnection urlConnection;
 		private String generatedUrl; // the current concatenated URL
 		private String pathToFile; // path to the file in which the reader writes the headlines
 		public ArrayList<String> urlsThatDidNotWork; // contains the URLs that did not work
 		private SimpleDateFormat sdf;  // http://docs.aws.amazon.com/cloudsearch/latest/developerguide/searching-dates.html
 		private XMLToCSV converter;
+		private final static int READ_TIMEOUT = 20000;
+		private final static int CONNECT_TIMEOUT = 20000;
 		
 		/**
 		 * Constructor.
@@ -78,8 +83,8 @@ public class FeedReader extends Thread{
 			sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS zzz"); // converting the input into UTC time in milliseconds
 
 			try {
-			this.timestampBegin = sdf.parse(startDate + " 00:00:00.000 UTC").getTime() / 1000;
-			this.endTime = sdf.parse(endDate + " 23:59:59.999 UTC").getTime() / 1000;
+			this.timestampBegin = sdf.parse(startDate + " 00:00:00.000 EST").getTime() / 1000;
+			this.endTime = sdf.parse(endDate + " 23:59:59.999 EST").getTime() / 1000;
 			
 			} catch (ParseException e) {
 				System.out.println("There was a problem parsing startTime or endTime.");
@@ -97,7 +102,7 @@ public class FeedReader extends Thread{
 		@Override	
 		public void run(){	
 		
-			int i = 0;
+			int dayIndex = 1;
 			try {
 				csvFileWriter = new BufferedWriter(new FileWriter(new File(this.pathToFile)));
 			} catch (IOException e1) {
@@ -122,16 +127,21 @@ public class FeedReader extends Thread{
 									+ start + ".." 
 									+ end 
 									+"&sort=top&restrict_sr=on&limit=25&syntax=cloudsearch";
-				System.out.println(Thread.currentThread().getName() + " day " + i);
+				System.out.println(Thread.currentThread().getName() + " day " + dayIndex);
 				try {
 					url = new URL(generatedUrl);
+
+
 					System.out.println(Thread.currentThread().getName() + " " + url);
 					
-					int j = 0;
-					while (j <= 20) {
+					int numberOfRetries = 0;
+					while (numberOfRetries <= 20) {
 						try {
-						j++;
-						inputStream = url.openStream();
+						numberOfRetries++;
+						urlConnection = url.openConnection();
+						urlConnection.setConnectTimeout(CONNECT_TIMEOUT);
+						urlConnection.setReadTimeout(READ_TIMEOUT);
+						inputStream = urlConnection.getInputStream();
 					
 					InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
 					rssReader = new BufferedReader(inputStreamReader);
@@ -148,10 +158,22 @@ public class FeedReader extends Thread{
 					
 					System.out.println(Thread.currentThread().getName() + " DONE");
 					break;
-						} catch(Exception e){
-							System.out.println(Thread.currentThread().getName() + " Problem. Retry.");
-							if (j == 20){
-								urlsThatDidNotWork.add("day: " + i + "url: " + generatedUrl);
+						} catch(SocketTimeoutException e){
+							System.out.println("Connection timeout.");
+							urlConnection = null;
+							if (numberOfRetries == 20){
+								urlsThatDidNotWork.add("day: " + dayIndex + "url: " + generatedUrl);
+							}
+						} catch(IOException e){
+							if(e.getMessage().contains("Server returned HTTP response code: 429")) {
+								System.out.println(Thread.currentThread().getName() 
+										+" HTTP response 429: Too many requests.");
+							} else {
+								System.out.println(Thread.currentThread().getName() + " Problem. Retry.");
+							}
+							urlConnection = null;
+							if (numberOfRetries == 20){
+								urlsThatDidNotWork.add("day: " + dayIndex + "url: " + generatedUrl);
 							}
 							
 						}
@@ -178,7 +200,7 @@ public class FeedReader extends Thread{
 						e.printStackTrace();
 					}
 				}
-				i++;
+				dayIndex++;
 				timestampBegin = timestampEnd + 1;
 				timestampEnd = timestampBegin + (24*60*60) - 1;
 			} while (timestampEnd < endTime);
