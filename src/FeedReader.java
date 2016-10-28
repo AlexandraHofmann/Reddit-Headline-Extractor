@@ -1,5 +1,7 @@
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -10,7 +12,9 @@ import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.TimeZone;
 
 
 
@@ -22,7 +26,8 @@ public class FeedReader extends Thread{
 
 	public static void main(String[] args){
 		
-		String fileToPath = "C:/Users/D060249/Desktop/TMP/newsfeed.csv";
+		String fileToPath = "/Users/alexandrahofmann/Documents/Master Uni MA/Data Mining/Projekt/newsFeed2.csv";
+				//"C:/Users/D060249/Desktop/TMP/newsfeed.csv";
 		//C:/Users/Alina/Desktop/Data Mining/Projekt/newsFeed7.csv
 		
 
@@ -38,7 +43,6 @@ public class FeedReader extends Thread{
 		Thread t1 = new Thread(new feedGetter("2015-01-01", "2015-01-12", fileToPath), "Thread 1");
 	    //	Thread t1 = new Thread(new feedGetter(new Date(2015, 1, 1), new Date(2015, 1, 12), fileToPath), "Thread 1");
 		// todo: 10 threads per year
-		// todo: add Alexandras 
 		
 		t1.start();
 		//t2.start();
@@ -60,8 +64,8 @@ public class FeedReader extends Thread{
 		private String generatedUrl; // the current concatenated URL
 		private String pathToFile; // path to the file in which the reader writes the headlines
 		public ArrayList<String> urlsThatDidNotWork; // contains the URLs that did not work
-		private SimpleDateFormat sdf; 
-		// http://docs.aws.amazon.com/cloudsearch/latest/developerguide/searching-dates.html
+		private SimpleDateFormat sdf;  // http://docs.aws.amazon.com/cloudsearch/latest/developerguide/searching-dates.html
+		private XMLToCSV converter;
 		
 		/**
 		 * Constructor.
@@ -71,22 +75,22 @@ public class FeedReader extends Thread{
 		 */
 		public feedGetter (String startDate, String endDate, String pathToFile){
 			
-			// converting the input into UTC time in milliseconds
-			sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS zzz"); // converter for easier input
+			sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS zzz"); // converting the input into UTC time in milliseconds
 
 			try {
-			this.timestampBegin = sdf.parse(startDate + " 00:00:00.000 UTC").getTime();
-			this.endTime = sdf.parse(endDate + " 23:59:59.999 UTC").getTime();
+			this.timestampBegin = sdf.parse(startDate + " 00:00:00.000 UTC").getTime() / 1000;
+			this.endTime = sdf.parse(endDate + " 23:59:59.999 UTC").getTime() / 1000;
+			
 			} catch (ParseException e) {
 				System.out.println("There was a problem parsing startTime or endTime.");
 			}
-
+			
 			this.timestampEnd =  this.timestampBegin + (24*60*60) - 1; //seconds per day
 			this.pathToFile = pathToFile;
 			this.urlsThatDidNotWork = new ArrayList<String>();
+			this.converter = new XMLToCSV();
 			
-		}
-					
+		}	
 			// do the following coding in a loop so that the URL changes day by day.
 			// write the data in a file (this will be used for the data input in RapidMiner)
 			
@@ -117,7 +121,7 @@ public class FeedReader extends Thread{
 				generatedUrl = "https://www.reddit.com/r/worldnews/search/.rss?q=timestamp:"
 									+ start + ".." 
 									+ end 
-									+"&sort=top&restrict_sr=on&limit=5&syntax=cloudsearch";
+									+"&sort=top&restrict_sr=on&limit=25&syntax=cloudsearch";
 				System.out.println(Thread.currentThread().getName() + " day " + i);
 				try {
 					url = new URL(generatedUrl);
@@ -128,18 +132,19 @@ public class FeedReader extends Thread{
 						try {
 						j++;
 						inputStream = url.openStream();
-						
-						
 					
 					InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
 					rssReader = new BufferedReader(inputStreamReader);
-					
-					// very important to do some preprocessing here (XML parser)...
-						
+											
 					String readLineFromReddit;
+					StringBuffer buffer = new StringBuffer();
 					while(((readLineFromReddit = rssReader.readLine()) != null)){	
-						csvFileWriter.write(readLineFromReddit);
+						//csvFileWriter.write(readLineFromReddit);
+						buffer.append(readLineFromReddit);
 					}
+					BufferedInputStream is = new BufferedInputStream(new ByteArrayInputStream(buffer.toString().getBytes()));
+					String csv = converter.xmlToCsv(is, new Date(this.timestampBegin * 1000));
+					csvFileWriter.write(csv);
 					
 					System.out.println(Thread.currentThread().getName() + " DONE");
 					break;
